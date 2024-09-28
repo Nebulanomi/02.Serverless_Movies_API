@@ -100,7 +100,7 @@ def get_movies_by_year(req: func.HttpRequest) -> func.HttpResponse:
 
 # Define the route for generating a movie summary based on the title
 @app.route(route="movies/getmoviesummary/{title}")
-def main(req: func.HttpRequest) -> func.HttpResponse:
+def getmoviesbysummary(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Fetching movie details for summary generation.')
 
     client = CosmosClient(cosmos_endpoint_uri, key)
