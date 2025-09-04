@@ -2,9 +2,10 @@
 
 - Create an API with serverless functions that display movie information.  
 - What is used: `Azure resources`, `Python 3.15 (With REST calls)` and `HTML`.
-- For ptimal configuration also do the following:
--- Making everything private with a vnet and private endpoints.
--- Instead of a `.env` file, have everything in Application Settings of your Function App.
+- For optimal configuration also do the following:
+  
+  - Making everything private with a vnet and private endpoints.
+  - Instead of a `.env` file, have everything in Application Settings of your Function App.
 
 ## Steps
 
