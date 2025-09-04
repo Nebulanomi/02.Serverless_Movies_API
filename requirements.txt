@@ -1,10 +1,9 @@
-azure-identity
-azure-mgmt-resource
-azure-mgmt-cosmosdb
-azure-mgmt-storage
-
-azure-cosmos
-azure-storage-blob
-azure-functions
-
-openai ==0.28
+azure-identity # Provides authentication capabilities using Azure Active Directory credentials
+azure-mgmt-resource # Manages Azure resources through Azure Resource Manager (ARM) API
+azure-mgmt-storage # Provides management capabilities for Azure Storage resources (Blobs, Files, Queues, Tables)
+azure-storage-blob # Manages Azure Blob Storage for uploading, downloading, and handling blobs
+azure-mgmt-cosmosdb # Manages Azure Cosmos DB accounts and related resources
+azure-cosmos # Interacts with Azure Cosmos DB to perform CRUD operations on documents
+azure-functions # Develops and manages Azure Functions for serverless computing
+openai # Interacts with OpenAI's API for accessing models like GPT-5 and DALL-E
+python-dotenv # Loads environment variables from a .env file for configuration management

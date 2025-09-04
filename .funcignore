@@ -1,8 +1,7 @@
 .git*
-.vscode
-__azurite_db*__.json
-__blobstorage__
-__queuestorage__
-local.settings.json
-test
 .venv
+.vscode
+create_resources
+movies
+README.md
+local.settings.json

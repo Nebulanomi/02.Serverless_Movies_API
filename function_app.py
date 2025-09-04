@@ -1,54 +1,90 @@
-import logging  # Import logging module to log information and errors
-import json     # Import json module to handle JSON serialization
-import os       # Import os module to access environment variables
-import openai   # Import OpenAI's GPT for AI summary generation
+from azure.cosmos import CosmosClient, exceptions
+from dotenv import load_dotenv
+from openai import OpenAI
 
-import azure.functions as func  # Import Azure Functions HTTP request/response classes
-from azure.cosmos import CosmosClient, exceptions  # Import Cosmos client and exception handling
+import azure.functions as func
+import logging
+import json
+import os
+import html
+
+# Take environment variables from .env
+load_dotenv()
 
 # Fetch Cosmos DB credentials from environment variables
-# These should be set in the Azure portal under "Application Settings" for security purposes
 cosmos_endpoint_uri = os.getenv("COSMOS_DB_ENDPOINT")
 key = os.getenv("COSMOS_DB_KEY")
 database_name = os.getenv("COSMOS_DB_NAME")
 container_name = os.getenv("COSMOS_CONTAINER_NAME")
 
-# Ensure that all Cosmos DB credentials are provided
-# This raises an error if any are missing
-if not all([cosmos_endpoint_uri, key, database_name, container_name]):
-    raise ValueError("Cosmos DB credentials are missing from environment variables.")
-
 # Initialize the Azure Functions app with anonymous access
 app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
+# Initialize OpenAI client
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# Validate that all necessary Cosmos DB credentials are present
+if not cosmos_endpoint_uri or not key or not database_name or not container_name:
+    raise ValueError("Cosmos DB credentials are missing.")
+
+# Initialize the Cosmos client within the function
+client = CosmosClient(cosmos_endpoint_uri, key)
+
+# Get a reference to the specific database and container (collection) where movies are stored
+database = client.get_database_client(database_name)
+container = database.get_container_client(container_name)
+
+# Helper function to build HTML header
+def build_html_header():
+    return """
+    <html>
+    <head>
+        <style>
+            .movie-gallery { display:flex; flex-wrap:wrap; gap:20px; }
+            .movie-card { border:1px solid #ccc; padding:10px; width:200px; text-align:center; box-shadow:2px 2px 5px rgba(0,0,0,0.1); }
+            .movie-card img { max-width:100%; height:auto; }
+        </style>
+    </head>
+    <body><div class="movie-gallery">
+    """
+
+# Helper function to build HTML footer
+def build_html_footer():
+    return "</div></body></html>"
+
 # Define the route for this function
-# It will be accessed via "/movies" URL
 @app.route(route="movies")
 def get_movies(req: func.HttpRequest) -> func.HttpResponse:
     """
     This function is triggered by an HTTP request.
-    It retrieves all movie records from a Cosmos DB collection and returns them as a JSON response.
+    It retrieves all movie records from a Cosmos DB collection and returns them as an HTML response.
     """
 
     logging.info('Fetching all movies from Cosmos DB.')
 
     try:
-        # Initialize the Cosmos client within the function
-        # This ensures the client is only created when needed, improving performance in serverless environments
-        client = CosmosClient(cosmos_endpoint_uri, key)
         
-        # Get a reference to the specific database and container (collection) where movies are stored
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
-    
         # Query the container to read all items (movies) with a maximum item count (100) for better performance
         movies = list(container.read_all_items(max_item_count=100))
+
+        # Build HTML content
+        html_content = build_html_header()
         
-        # Convert the list of movie objects to JSON format for the HTTP response
-        movies_json = json.dumps(movies)
-        
-        # Return the movies list as a JSON response with a 200 status (success)
-        return func.HttpResponse(movies_json, mimetype="application/json", status_code=200)
+        # Iterate through the movies and create HTML cards for each movie
+        for movie in movies:
+            html_content += f"""
+                <div class="movie-card">
+                    <h3>{html.escape(movie['title'])} ({html.escape(movie['releaseYear'])})</h3>
+                    <p>{html.escape(movie['genre'])}</p>
+                    <img src="{html.escape(movie['coverUrl'])}" />
+                </div>
+            """
+
+        # Close the HTML tags
+        html_content += build_html_footer()
+
+        # Return the movies list as a HTML response with a 200 status (success)
+        return func.HttpResponse(html_content, mimetype="text/html")
     
     except exceptions.CosmosHttpResponseError as e:
         # Catch specific Cosmos DB errors and log the error details
@@ -65,14 +101,11 @@ def get_movies(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("An unexpected error occurred", status_code=500)
 
 # Define the route for fetching movies by release year
-@app.route(route="movies/getmoviesbyyear/{year}")
-def get_movies_by_year(req: func.HttpRequest) -> func.HttpResponse:
+@app.route(route="movies/year/{year}")
+def get_year(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Fetching movies by release year from Cosmos DB.')
     
     try:
-        client = CosmosClient(cosmos_endpoint_uri, key)
-        database = client.get_database_client(database_name)
-        container = database.get_container_client(container_name)
         
         # Get year from URL parameters
         release_year = req.route_params.get('year')
@@ -82,61 +115,79 @@ def get_movies_by_year(req: func.HttpRequest) -> func.HttpResponse:
             return func.HttpResponse("Please provide a valid year", status_code=400)
 
         # Construct a query to fetch movies by the specified release year
-        query = f"SELECT * FROM c WHERE c.releaseYear = '{release_year}'"
-        movies = list(container.query_items(query=query, enable_cross_partition_query=True))
+        document_query = f"SELECT * FROM documents WHERE documents.releaseYear = '{release_year}'"
+        movies = list(container.query_items(query=document_query, enable_cross_partition_query=True))
 
-        # Return the fetched movies as a JSON response with a 200 status (success)
-        return func.HttpResponse(json.dumps(movies), mimetype="application/json", status_code=200)
+        html_content = build_html_header()
+        
+        for movie in movies:
+            html_content += f"""
+                <div class="movie-card">
+                    <h3>{html.escape(movie['title'])} ({html.escape(movie['releaseYear'])})</h3>
+                    <p>{html.escape(movie['genre'])}</p>
+                    <img src="{html.escape(movie['coverUrl'])}" />
+                </div>
+            """
+
+        html_content += build_html_footer()
+
+        return func.HttpResponse(html_content, mimetype="text/html")
     
-    # Log any errors that occur while fetching from Cosmos DB
     except exceptions.CosmosHttpResponseError as e:
         logging.error(f"Error occurred: {e}")
         return func.HttpResponse("Error fetching data from Cosmos DB", status_code=500)
     
-    # Log unexpected errors and return a generic error message
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
         return func.HttpResponse("An unexpected error occurred", status_code=500)
 
 # Define the route for generating a movie summary based on the title
-@app.route(route="movies/getmoviesummary/{title}")
-def getmoviesbysummary(req: func.HttpRequest) -> func.HttpResponse:
+@app.route(route="movies/summary/{title}")
+def get_summary(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Fetching movie details for summary generation.')
 
-    client = CosmosClient(cosmos_endpoint_uri, key)
-    database = client.get_database_client(database_name)
-    container = database.get_container_client(container_name)
-
-    # OpenAI API Key for accessing the AI model
-    openai.api_key = os.getenv("OPENAI_KEY")
-
-    movie_title = req.route_params.get('title')
-    
-    if not movie_title:
-        return func.HttpResponse("Please provide a valid movie title", status_code=400)
-
     try:
-        query = f"SELECT * FROM c WHERE c.title = '{movie_title}'"
-        movies = list(container.query_items(query=query, enable_cross_partition_query=True))
+        title = req.route_params.get('title')
+        
+        if not title:
+            return func.HttpResponse("Please provide a valid movie title", status_code=400)
+
+        document_query = "SELECT * FROM documents WHERE documents.title = @title"
+        movies = list(container.query_items(query=document_query, parameters=[{"name": "@title", "value": title}], enable_cross_partition_query=True))
         
         if not movies:
-            return func.HttpResponse(f"Movie with title {movie_title} not found", status_code=404)
+            return func.HttpResponse(f"Movie with title {title} not found", status_code=404)
         
+        # Use OpenAI to generate a summary for the movie
         for movie in movies:
-            # Use OpenAI to generate a summary for the movie
-            prompt = f"Generate a summary for the movie {movie_title}: {movie['genre']}"
-            response = openai.ChatCompletion.create(
+            prompt = f"Generate a summary for the movie {title}"
+            response = openai_client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt}
-                ])
+                ]
+            )
             
-            movie["generatedSummary"] = response['choices'][0]['message']['content'].strip()
+            # Capture and clean up the generated summary
+            movie["generatedSummary"] = response.choices[0].message.content
 
-            # Return movie data with generated summary
-            return func.HttpResponse(json.dumps(movie), mimetype="application/json", status_code=200)
+        html_content = build_html_header()
         
+        for movie in movies:
+            html_content += f"""
+                <div class="movie-card">
+                    <h3>{html.escape(movie['title'])} ({html.escape(movie['releaseYear'])})</h3>
+                    <p>{html.escape(movie['genre'])}</p>
+                    <img src="{html.escape(movie['coverUrl'])}" />
+                    <p>{html.escape(movie.get('generatedSummary', ''))}</p>
+                </div>
+            """
+
+        html_content += build_html_footer()
+
+        return func.HttpResponse(html_content, mimetype="text/html")
+    
     except exceptions.CosmosHttpResponseError as e:
         logging.error(f"Error occurred: {e}")
         return func.HttpResponse("Error fetching data from Cosmos DB", status_code=500)
