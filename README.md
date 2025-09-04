@@ -1,9 +1,10 @@
 # Serverless Movies API
 
 - Create an API with serverless functions that display movie information.  
-- Don't forget to create a GitHub repo and document everything in your `README.md`.
-- Azure resources, Python 3.15 (With REST calls & Azure resource deployment) and HTML is used for this.
-- This isnt the optimal configuration, making everything private with a vnet and private endpoints + instead of a `.env` file, have everything in Application Settings of your Function App.
+- What is used: `Azure resources`, `Python 3.15 (With REST calls)` and `HTML`.
+- For ptimal configuration also do the following:
+-- Making everything private with a vnet and private endpoints.
+-- Instead of a `.env` file, have everything in Application Settings of your Function App.
 
 ## Steps
 
@@ -101,7 +102,7 @@ GET /getmoviesummary/inception
 
 # Guide to Building a Serverless Movies API with Azure
 
-- This guide outlines the process for building a Serverless Movies API using Azure services, including Azure Functions, Cosmos DB, and Azure Blob Storage.
+- This guide outlines the process for building a Serverless Movies API using Azure services, including `Azure Functions`, `Cosmos DB` and `Blob Storage`.
 - It also highlights how Python can complement this process, particularly for automating deployments and programmatically interacting with Azure services.
 
 ## 1. Azure SDK for Python
