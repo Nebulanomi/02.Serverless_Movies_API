@@ -1,0 +1,7 @@
+.git*
+.venv
+.vscode
+create_resources
+movies
+README.md
+local.settings.json
