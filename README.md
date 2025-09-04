@@ -5,7 +5,6 @@
 - Azure resources, Python 3.15 (With REST calls & Azure resource deployment) and HTML is used for this.
 - This isnt the optimal configuration, making everything private with a vnet and private endpoints + instead of a `.env` file, have everything in Application Settings of your Function App.
 
-
 ## Steps
 
 ### 1. Create Your Cloud Infrastructure
